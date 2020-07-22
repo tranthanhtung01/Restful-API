@@ -1,11 +1,23 @@
 import mongoose from 'mongoose';
-
 const studentSchema = mongoose.Schema(
   {
-    nameStudent: String,
+    studentName: String,
     className: String,
     dateOfBirth: String,
     address: String,
+    user: String,
+    password: String,
+    role: {
+      type: String,
+      default: 'user',
+    },
+    // roles: 'user  ',
+    // allows: [
+    //   {
+    //     resources: '/posts',
+    //     permissions: 'post,get',
+    //   },
+    // ],
   },
   {collection: 'Student'},
 );

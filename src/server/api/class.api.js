@@ -1,5 +1,6 @@
 import {ClassNameModel} from '../model/class.model';
 import {createClassSchema} from '../utils/validationSchema';
+import {StudentNameModel} from '../model/student.model';
 
 export async function findClass(req, res) {
   try {
@@ -21,18 +22,36 @@ export async function findClass(req, res) {
 
 export async function listingClass(req, res) {
   try {
-    const listingClass = await ClassNameModel.find({});
+    const page = parseInt(req.query.page, 10),
+      limit = parseInt(req.query.limit);
+    if (!page || page < 1) {
+      return res.status(400).json({
+        success: false,
+        massage: 'page number invalid ',
+      });
+    }
+
+    const ListingClassApi = await ClassNameModel.find()
+      .skip((page - 1) * limit)
+      .limit(limit);
+    if (ListingClassApi.length === 0) {
+      return res.status(400).json({
+        success: false,
+        massage: 'null',
+      });
+    }
     return res.json({
-      listingClass,
       success: true,
-      data: 'found all Class',
+      page: page,
+      limit: limit,
+      data: ListingClassApi,
     });
   } catch (err) {
     res.status(400);
     return res.json({
       success: false,
       data: 'Class not found',
-      message: err.message + 'find_Class',
+      message: err.message,
     });
   }
 }
@@ -58,7 +77,14 @@ export async function createClass(req, res) {
 
 export async function updateClass(req, res) {
   try {
-    const updateClass = await ClassNameModel.updateOne({_id: req.params.id});
+    const updateClass = await ClassNameModel.updateOne(
+      {_id: req.params.id},
+      {
+        className: req.body.className,
+        numberOfStudent: req.body.numberOfStudent,
+        Student: req.body.Student,
+      },
+    );
     return res.json({
       updateClass,
       success: true,
@@ -75,14 +101,25 @@ export async function updateClass(req, res) {
 }
 export async function deleteClass(req, res) {
   try {
-    const deleteClass = await ClassNameModel.deleteOne({
-      _id: req.params.id,
-    });
-    return res.json({
-      updateClass,
-      success: true,
-      data: 'Successfully deleted class',
-    });
+    const CheckNumberStudent = await ClassNameModel.find({});
+    if (CheckNumberStudent != null) {
+      res.status(400);
+      return res.json({
+        message: 'You need to delete all students first',
+      });
+    }
+    {
+      const deleteClass = await ClassNameModel.deleteOne({
+        _id: req.params.id,
+      });
+      {
+        return res.json({
+          updateClass,
+          success: true,
+          data: 'Successfully deleted class',
+        });
+      }
+    }
   } catch (err) {
     res.status(400);
     return res.json({
@@ -111,10 +148,10 @@ export async function generalList(req, res) {
 }
 export async function generalListOne(req, res) {
   try {
-    const generalListOne = await ClassNameModel.findOne({
+    const generalListOne = await StudentNameModel.findOne({
       _id: req.params.classID,
       Student: req.params.id,
-    }).populate('Student');
+    }).populate('className');
     return res.json({
       generalListOne,
       success: true,

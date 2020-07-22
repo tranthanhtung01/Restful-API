@@ -1,5 +1,9 @@
 import {StudentNameModel} from '../model/student.model';
 import {createStudentSchema} from '../utils/validationSchema';
+import hashPassword from 'password-hash';
+import {typeTeacherSchema} from '../utils/validationSchema/teacherSchema';
+import {TeacherNameModel} from '../model/teacher.model';
+import {ClassNameModel} from '../model/class.model';
 
 export async function findStudent(req, res) {
   try {
@@ -21,45 +25,102 @@ export async function findStudent(req, res) {
 
 export async function listingStudent(req, res) {
   try {
-    const listingStudent = await StudentNameModel.find({});
+    const page = parseInt(req.query.page, 10),
+      limit = parseInt(req.query.limit);
+    if (!page || page < 1) {
+      return res.status(400).json({
+        success: false,
+        massage: 'page number invalid ',
+      });
+    }
+
+    const ListingStudentApi = await StudentNameModel.find()
+      .skip((page - 1) * limit)
+      .limit(limit);
+    if (ListingStudentApi.length === 0) {
+      return res.status(400).json({
+        success: false,
+        massage: 'null',
+      });
+    }
     return res.json({
-      listingStudent,
       success: true,
-      data: 'found all Student',
+      page: page,
+      limit: limit,
+      data: ListingStudentApi,
     });
   } catch (err) {
     res.status(400);
     return res.json({
       success: false,
       data: 'Student not found',
-      message: err.message + 'find_Students',
+      message: err.message,
     });
   }
 }
 
 export async function createStudent(req, res) {
-  const {nameStudent, className, dateOfBirth, address} = req.body,
-    {error} = createStudentSchema.validate({
-      nameStudent,
-      className,
-      dateOfBirth,
-      address,
+  try {
+    const {
+        studentName,
+        className,
+        dateOfBirth,
+        address,
+        user,
+        password,
+      } = req.body,
+      hash_password = hashPassword.generate(password),
+      {error} = createStudentSchema.validate({
+        studentName,
+        className,
+        dateOfBirth,
+        address,
+        user,
+        password,
+      });
+    if (error) {
+      res.status(400);
+      return res.json({
+        message: error.message,
+      });
+    }
+    const CheckUser = req.body.user;
+    const CheckUserAPI = await StudentNameModel.findOne({
+      user: CheckUser,
     });
-  if (error) {
+    if (CheckUserAPI) {
+      res.status(400);
+      return res.json({
+        message: 'User already exists',
+      });
+    }
+    {
+      new StudentNameModel({
+        studentName: studentName,
+        className: className,
+        dateOfBirth: dateOfBirth,
+        address: address,
+        user: user,
+        password: hash_password,
+      }).save();
+      res.json(req.body);
+      return res.json({
+        success: true,
+        studentName,
+        className,
+        dateOfBirth,
+        address,
+        user,
+        password: hash_password,
+        message: 'create success',
+      });
+    }
+  } catch (err) {
     res.status(400);
     return res.json({
-      message: error.message,
-    });
-  } else {
-    new StudentNameModel({
-      nameStudent: nameStudent,
-      className: className,
-      dateOfBirth: dateOfBirth,
-      address: address,
-    }).save();
-    res.json(req.body);
-    return res.json({
-      message: 'create success',
+      success: false,
+      data: 'Creating Student Failed',
+      message: err.message,
     });
   }
 }
